@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Link, Stack } from 'expo-router';
-import { getExercisesByCategory, getUniqueTags } from '../data/exerciseData';
+import { useWorkout } from '../context/WorkoutContext';
 
 // Exercise Card Component
 function ExerciseCardList({ exercise }) {
@@ -19,10 +19,11 @@ function ExerciseCardList({ exercise }) {
 }
 
 export default function ExerciseLibraryScreen() {
+  const { getExercisesByCategory, getUniqueTags, state } = useWorkout();
   const [activeTab, setActiveTab] = useState<'cardio' | 'gym'>('gym');
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
-  const tags = useMemo(() => getUniqueTags(activeTab), [activeTab]);
+  const tags = useMemo(() => getUniqueTags(activeTab), [activeTab, state.exercises]);
 
   const filteredExercises = useMemo(() => {
     const exercises = getExercisesByCategory(activeTab);
@@ -30,7 +31,7 @@ export default function ExerciseLibraryScreen() {
       return exercises.filter((ex) => ex.tags.includes(activeTag));
     }
     return exercises;
-  }, [activeTab, activeTag]);
+  }, [activeTab, activeTag, state.exercises]);
 
   return (
     <View style={styles.container}>

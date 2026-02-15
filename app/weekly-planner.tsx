@@ -1,44 +1,114 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { Link, Stack } from 'expo-router';
 import { useWorkout } from '../context/WorkoutContext';
-import { getExercisesByIds, DAY_FOCUS } from '../data/exerciseData';
+import { DAY_FOCUS } from './types';
 
 // Reusing styles from index.tsx logic
 const DAYS_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 export default function WeeklyPlannerScreen() {
-  const { state } = useWorkout();
+  const { state, getExercisesByIds } = useWorkout();
   const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
+  // Calculate weekly stats
+  const weeklyStats = useMemo(() => {
+    let totalExercises = 0;
+    let activeDays = 0;
+    DAYS_ORDER.forEach(day => {
+      const count = (state.dayPlan[day] || []).length;
+      if (count > 0) {
+        totalExercises += count;
+        activeDays++;
+      }
+    });
+    return { totalExercises, activeDays };
+  }, [state.dayPlan]);
+
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <Stack.Screen options={{ title: 'Weekly Planner' }} />
-      <View style={styles.content}>
+    <ScrollView 
+      style={styles.container} 
+      contentContainerStyle={styles.contentContainer}
+      showsVerticalScrollIndicator={false}
+    >
+      <Stack.Screen options={{ 
+        title: '', 
+        headerStyle: { backgroundColor: '#f8f9fa' },
+        headerShadowVisible: false,
+        headerTintColor: '#333',
+      }} />
+      
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>Weekly Plan</Text>
+          <Text style={styles.headerSubtitle}>
+            {weeklyStats.activeDays} active days • {weeklyStats.totalExercises} exercises
+          </Text>
+        </View>
+        <View style={styles.headerIconCircle}>
+          <Text style={styles.headerIcon}>📅</Text>
+        </View>
+      </View>
+
+      <View style={styles.list}>
         {DAYS_ORDER.map((day) => {
           const exercises = getExercisesByIds(state.dayPlan[day] || []);
           const isToday = day === todayName;
+          const isRest = exercises.length === 0;
+          
+          // Determine status color
+          let statusColor = '#2e7d32'; // Default Green (Active Normal)
+          if (isToday) statusColor = '#f4511e'; // Orange (Today)
+          else if (isRest) statusColor = '#bdbdbd'; // Grey (Rest)
 
           return (
             <Link key={day} href={`/day/${day}`} asChild>
-              <TouchableOpacity style={[styles.dayCard, isToday && styles.dayCardToday]}>
-                <View style={styles.dayCardHeader}>
-                  <Text style={[styles.dayCardName, isToday && styles.dayCardNameToday]}>
-                    {day} {isToday ? '(Today)' : ''}
-                  </Text>
-                  <Text style={styles.dayCardFocus}>{DAY_FOCUS[day]}</Text>
+              <TouchableOpacity 
+                activeOpacity={0.7}
+                style={[
+                  styles.card, 
+                  { borderLeftColor: statusColor },
+                  isToday && styles.cardToday,
+                  isRest && !isToday && styles.cardRest
+                ]}
+              >
+                <View style={styles.cardContent}>
+                  <View style={styles.cardHeader}>
+                    <View style={styles.dayContainer}>
+                      <Text style={[styles.dayName, isToday && styles.dayNameToday]}>{day}</Text>
+                      {isToday && (
+                        <View style={styles.todayBadge}>
+                          <Text style={styles.todayText}>TODAY</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.focusText}>
+                      {DAY_FOCUS[day] || 'Recovery'}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.cardFooter}>
+                    <View style={styles.statsRow}>
+                      <Text style={styles.statsIcon}>{isRest ? '🧘' : '💪'}</Text>
+                      <Text style={styles.statsText}>
+                        {isRest ? 'Rest Day' : `${exercises.length} Exercises`}
+                      </Text>
+                    </View>
+                    <View style={styles.actionButton}>
+                      <Text style={[styles.actionText, isToday && styles.actionTextToday]}>
+                        {isRest ? 'View' : 'Start'}
+                      </Text>
+                      <Text style={[styles.arrow, isToday && styles.arrowToday]}>→</Text>
+                    </View>
+                  </View>
                 </View>
-                <Text style={styles.dayCardCount}>
-                  {exercises.length === 0
-                    ? 'Rest'
-                    : `${exercises.length} exercise${exercises.length > 1 ? 's' : ''}`}
-                </Text>
-                <Text style={styles.arrow}>›</Text>
               </TouchableOpacity>
             </Link>
           );
         })}
       </View>
+      
+      <View style={styles.bottomSpacer} />
     </ScrollView>
   );
 }
@@ -46,50 +116,163 @@ export default function WeeklyPlannerScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f0f5',
+    backgroundColor: '#f8f9fa',
   },
-  content: {
-    padding: 16,
+  contentContainer: {
+    padding: 20,
+    paddingTop: 10,
   },
-  dayCard: {
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#1a1a1a',
+    letterSpacing: -0.5,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  headerIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  headerIcon: {
+    fontSize: 24,
+  },
+  list: {
+    gap: 16,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderLeftWidth: 6, // Use border directly for the indicator
+    // Other borders
+    borderTopWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#eee', // More visible border
+    // Shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, // Slightly darker shadow
+    shadowRadius: 8,
+    elevation: 3,
+    marginBottom: 0, // Using gap in list
+  },
+  cardToday: {
+    backgroundColor: '#fff',
+    borderColor: '#f4511e20',
+    shadowColor: '#f4511e',
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  cardRest: {
+    opacity: 0.9,
+    backgroundColor: '#fcfcfc',
+  },
+  cardContent: {
+    padding: 16,
+    paddingLeft: 12,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 12,
+  },
+  dayContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#e8e8e8',
+    gap: 8,
   },
-  dayCardToday: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#f4511e',
-  },
-  dayCardHeader: {
-    flex: 1,
-  },
-  dayCardName: {
-    fontSize: 16,
-    fontWeight: '600',
+  dayName: {
+    fontSize: 18,
+    fontWeight: '700',
     color: '#333',
   },
-  dayCardNameToday: {
+  dayNameToday: {
     color: '#f4511e',
   },
-  dayCardFocus: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 2,
+  todayBadge: {
+    backgroundColor: '#f4511e15',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
-  dayCardCount: {
+  todayText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#f4511e',
+    letterSpacing: 0.5,
+  },
+  focusText: {
     fontSize: 13,
     color: '#666',
+    fontWeight: '600',
+    backgroundColor: '#f5f5f5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statsIcon: {
+    fontSize: 14,
+  },
+  statsText: {
+    fontSize: 14,
+    color: '#666',
     fontWeight: '500',
-    marginRight: 8,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  actionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#999',
+  },
+  actionTextToday: {
+    color: '#f4511e',
   },
   arrow: {
-    fontSize: 20,
+    fontSize: 16,
+    fontWeight: '600',
     color: '#ccc',
+  },
+  arrowToday: {
+    color: '#f4511e',
+  },
+  bottomSpacer: {
+    height: 40,
   },
 });

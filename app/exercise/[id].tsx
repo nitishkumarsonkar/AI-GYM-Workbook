@@ -1,10 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Image } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
-import { getExerciseById } from '../../data/exerciseData';
+import { useWorkout } from '../../context/WorkoutContext';
 
 export default function ExerciseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { getExerciseById } = useWorkout();
   const exercise = getExerciseById(Number(id));
 
   if (!exercise) {

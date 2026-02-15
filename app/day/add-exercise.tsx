@@ -9,12 +9,12 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useWorkout } from '../../context/WorkoutContext';
-import { ALL_EXERCISES, getUniqueTags, Exercise } from '../../data/exerciseData';
+import { Exercise } from '../types';
 
 export default function AddExerciseScreen() {
   const { day } = useLocalSearchParams<{ day: string }>();
   const dayName = day || 'Monday';
-  const { state, addExerciseToDay } = useWorkout();
+  const { state, addExerciseToDay, getUniqueTags } = useWorkout();
   const router = useRouter();
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -24,7 +24,7 @@ export default function AddExerciseScreen() {
   const tags = getUniqueTags();
 
   const availableExercises = useMemo(() => {
-    let exercises = ALL_EXERCISES.filter((ex) => !currentPlan.includes(ex.id));
+    let exercises = state.exercises.filter((ex) => !currentPlan.includes(ex.id));
     if (activeTag) {
       exercises = exercises.filter((ex) => ex.tags.includes(activeTag));
     }

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Link, Stack } from 'expo-router';
 import { useWorkout } from '../context/WorkoutContext';
-import { getTodayName, getExercisesByIds, DAY_FOCUS, Exercise } from '../data/exerciseData';
+import { getTodayName, DAY_FOCUS, Exercise } from './types';
 
 // Reusing the list card style for consistency
 function ExerciseCardList({ exercise }: { exercise: Exercise }) {
@@ -20,7 +20,7 @@ function ExerciseCardList({ exercise }: { exercise: Exercise }) {
 }
 
 export default function TodaysWorkoutScreen() {
-  const { state } = useWorkout();
+  const { state, getExercisesByIds } = useWorkout();
   const todayName = getTodayName();
   const todayExercises = getExercisesByIds(state.dayPlan[todayName] || []);
 
