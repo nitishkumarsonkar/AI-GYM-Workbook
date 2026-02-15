@@ -9,7 +9,14 @@ import {
 import { Link, Stack } from 'expo-router';
 
 // Dashboard Card Component
-function DashboardCard({ title, emoji, href, description }) {
+type DashboardCardProps = {
+  title: string;
+  emoji: string;
+  href: '/todays-workout' | '/exercise-library' | '/weekly-planner' | '/sign-in';
+  description: string;
+};
+
+function DashboardCard({ title, emoji, href, description }: DashboardCardProps) {
   return (
     <Link href={href} asChild>
       <TouchableOpacity style={styles.card}>
@@ -52,6 +59,13 @@ export default function HomeScreen() {
         emoji="📅"
         href="/weekly-planner"
         description="Manage your 7-day workout schedule"
+      />
+
+      <DashboardCard
+        title="Sign In"
+        emoji="🔐"
+        href="/sign-in"
+        description="Sign in or continue as guest"
       />
 
       <View style={styles.footer}>

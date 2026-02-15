@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { DayPlan, DEFAULT_DAY_PLAN, Exercise } from '../types';
+import { ensureAuthenticated } from './authService';
 
 // ─── Exercise Service ────────────────────────────────────────────────
 
@@ -63,9 +64,14 @@ export const fetchUserPlan = async (): Promise<DayPlan> => {
 };
 
 export const addExerciseToPlan = async (day: string, exerciseId: number) => {
-    const { data: { session } } = await supabase.auth.getSession();
+    let { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) {
-        console.warn('Cannot add to plan: No user session found.');
+        await ensureAuthenticated();
+        ({ data: { session } } = await supabase.auth.getSession());
+    }
+
+    if (!session?.user) {
+        console.warn('Cannot add to plan: no authenticated session.');
         return;
     }
 
@@ -83,9 +89,14 @@ export const addExerciseToPlan = async (day: string, exerciseId: number) => {
 };
 
 export const removeExerciseFromPlan = async (day: string, exerciseId: number) => {
-    const { data: { session } } = await supabase.auth.getSession();
+    let { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) {
-        console.warn('Cannot remove from plan: No user session found.');
+        await ensureAuthenticated();
+        ({ data: { session } } = await supabase.auth.getSession());
+    }
+
+    if (!session?.user) {
+        console.warn('Cannot remove from plan: no authenticated session.');
         return;
     }
 

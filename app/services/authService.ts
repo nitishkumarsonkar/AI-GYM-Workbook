@@ -9,13 +9,25 @@ const BASE_DELAY = 1000; // 1 second
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+const getSessionUser = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.user ?? null;
+};
+
 export const ensureAuthenticated = async () => {
     try {
         // 1. Check if we already have a session
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-            console.log('User already authenticated:', session.user.id);
-            return session.user;
+        const sessionUser = await getSessionUser();
+        if (sessionUser) {
+            console.log('User already authenticated:', sessionUser.id);
+            return sessionUser;
+        }
+
+        // 1.5 Prefer anonymous auth when enabled in Supabase
+        const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
+        if (!anonError && anonData.user) {
+            const anonUser = await getSessionUser();
+            if (anonUser) return anonUser;
         }
 
         // 2. Try to recover existing guest credentials
@@ -29,15 +41,18 @@ export const ensureAuthenticated = async () => {
             });
 
             if (!error && data.user) {
-                return data.user;
+                const signedInUser = await getSessionUser();
+                if (signedInUser) return signedInUser;
             }
             console.warn('Stored credentials failed, creating new user...', error?.message);
         }
 
         // 3. Create a new guest user with retry logic
         for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-            const email = `guest_${Date.now()}_${Math.random().toString(36).substring(7)}@example.com`;
-            const password = `pass_${Math.random().toString(36).substring(7)}`;
+            // Keep a conservative email format to satisfy strict validators.
+            const randomToken = Math.random().toString(36).slice(2, 10);
+            const email = `guest.${Date.now()}.${randomToken}@gymapp.dev`;
+            const password = `pass${Math.random().toString(36).slice(2, 12)}`;
 
             console.log(`Creating new guest user (Attempt ${attempt + 1}/${MAX_RETRIES}):`, email);
             const { data, error } = await supabase.auth.signUp({
@@ -46,9 +61,19 @@ export const ensureAuthenticated = async () => {
             });
 
             if (!error && data.user) {
-                // Success! Store credentials
-                await AsyncStorage.setItem(GUEST_CREDENTIALS_KEY, JSON.stringify({ email, password }));
-                return data.user;
+                const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+                    email,
+                    password,
+                });
+
+                if (!signInError && signInData.user) {
+                    // Persist only credentials that can establish a real session.
+                    await AsyncStorage.setItem(GUEST_CREDENTIALS_KEY, JSON.stringify({ email, password }));
+                    const signedInUser = await getSessionUser();
+                    if (signedInUser) return signedInUser;
+                }
+
+                console.warn('Guest user created but sign-in failed:', signInError?.message);
             }
 
             // Check if error is rate limit related (429)
