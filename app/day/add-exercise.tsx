@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -6,16 +6,22 @@ import {
   FlatList,
   TouchableOpacity,
   ScrollView,
-} from 'react-native';
-import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
-import { useWorkout } from '../../context/WorkoutContext';
-import { Exercise } from '../types';
+  Platform,
+  KeyboardAvoidingView,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useLocalSearchParams, Stack, useRouter } from "expo-router";
+import { useWorkout } from "../../context/WorkoutContext";
+import { useAuth } from "../../context/AuthContext";
+import { Exercise } from "../types";
 
 export default function AddExerciseScreen() {
   const { day } = useLocalSearchParams<{ day: string }>();
-  const dayName = day || 'Monday';
+  const dayName = day || "Monday";
   const { state, addExerciseToDay, getUniqueTags } = useWorkout();
   const router = useRouter();
+  const { user } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [activeTag, setActiveTag] = useState<string | null>(null);
@@ -24,7 +30,9 @@ export default function AddExerciseScreen() {
   const tags = getUniqueTags();
 
   const availableExercises = useMemo(() => {
-    let exercises = state.exercises.filter((ex) => !currentPlan.includes(ex.id));
+    let exercises = state.exercises.filter(
+      (ex) => !currentPlan.includes(ex.id),
+    );
     if (activeTag) {
       exercises = exercises.filter((ex) => ex.tags.includes(activeTag));
     }
@@ -45,97 +53,142 @@ export default function AddExerciseScreen() {
     router.back();
   };
 
+  const BOTTOM_NAV_HEIGHT = Platform.select({
+    ios: 88,
+    android: 72,
+    default: 72,
+  });
+  const navOffset = user ? BOTTOM_NAV_HEIGHT : 0;
+  const bottomInset = Math.max(insets.bottom, 12);
+  const footerPadding = bottomInset + navOffset;
+  const footerHeight = 80 + footerPadding; // ensures list scrolls past CTA
+
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+    >
       <Stack.Screen options={{ title: `Add to ${dayName}` }} />
 
-      {/* Tag Filter */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.tagRow}
-      >
-        <TouchableOpacity
-          style={[styles.tagPill, !activeTag && styles.activeTag]}
-          onPress={() => setActiveTag(null)}
+      <View style={styles.contentWrapper}>
+        {/* Tag Filter */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tagRow}
         >
-          <Text style={[styles.tagText, !activeTag && styles.activeTagText]}>All</Text>
-        </TouchableOpacity>
-        {tags.map((tag) => (
           <TouchableOpacity
-            key={tag}
-            style={[styles.tagPill, activeTag === tag && styles.activeTag]}
-            onPress={() => setActiveTag(activeTag === tag ? null : tag)}
+            style={[styles.tagPill, !activeTag && styles.activeTag]}
+            onPress={() => setActiveTag(null)}
           >
-            <Text style={[styles.tagText, activeTag === tag && styles.activeTagText]}>
-              {tag}
+            <Text style={[styles.tagText, !activeTag && styles.activeTagText]}>
+              All
             </Text>
           </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Exercise List */}
-      <FlatList
-        data={availableExercises}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => {
-          const isSelected = selectedIds.has(item.id);
-          return (
+          {tags.map((tag) => (
             <TouchableOpacity
-              style={[styles.card, isSelected && styles.cardSelected]}
-              onPress={() => toggleSelect(item.id)}
+              key={tag}
+              style={[styles.tagPill, activeTag === tag && styles.activeTag]}
+              onPress={() => setActiveTag(activeTag === tag ? null : tag)}
             >
-              <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
-                {isSelected && <Text style={styles.checkmark}>✓</Text>}
-              </View>
-              <View style={styles.info}>
-                <Text style={styles.name}>{item.name}</Text>
-                <Text style={styles.sets}>{item.sets}</Text>
-                <View style={styles.exerciseTagRow}>
-                  <View
-                    style={[
-                      styles.categoryBadge,
-                      item.category === 'cardio' ? styles.cardioBadge : styles.gymBadge,
-                    ]}
-                  >
-                    <Text style={styles.categoryText}>{item.category}</Text>
-                  </View>
-                  {item.tags.slice(0, 2).map((tag) => (
-                    <View key={tag} style={styles.miniTag}>
-                      <Text style={styles.miniTagText}>{tag}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
+              <Text
+                style={[
+                  styles.tagText,
+                  activeTag === tag && styles.activeTagText,
+                ]}
+              >
+                {tag}
+              </Text>
             </TouchableOpacity>
-          );
-        }}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>All exercises already added!</Text>
-          </View>
-        }
-      />
+          ))}
+        </ScrollView>
+
+        {/* Exercise List */}
+        <FlatList
+          data={availableExercises}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item }) => {
+            const isSelected = selectedIds.has(item.id);
+            return (
+              <TouchableOpacity
+                style={[styles.card, isSelected && styles.cardSelected]}
+                onPress={() => toggleSelect(item.id)}
+              >
+                <View
+                  style={[
+                    styles.checkbox,
+                    isSelected && styles.checkboxSelected,
+                  ]}
+                >
+                  {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                </View>
+                <View style={styles.info}>
+                  <Text style={styles.name}>{item.name}</Text>
+                  <Text style={styles.sets}>{item.sets}</Text>
+                  <View style={styles.exerciseTagRow}>
+                    <View
+                      style={[
+                        styles.categoryBadge,
+                        item.category === "cardio"
+                          ? styles.cardioBadge
+                          : styles.gymBadge,
+                      ]}
+                    >
+                      <Text style={styles.categoryText}>{item.category}</Text>
+                    </View>
+                    {item.tags.slice(0, 2).map((tag) => (
+                      <View key={tag} style={styles.miniTag}>
+                        <Text style={styles.miniTagText}>{tag}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          }}
+          contentContainerStyle={[styles.list, { paddingBottom: footerHeight }]}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>All exercises already added!</Text>
+            </View>
+          }
+        />
+      </View>
 
       {/* Add Button */}
-      {selectedIds.size > 0 && (
-        <View style={styles.footer}>
-          <TouchableOpacity style={styles.addButton} onPress={handleAdd}>
-            <Text style={styles.addButtonText}>
-              Add {selectedIds.size} Exercise{selectedIds.size > 1 ? 's' : ''}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
+      <View
+        style={[
+          styles.footer,
+          { bottom: navOffset, paddingBottom: bottomInset },
+        ]}
+      >
+        <TouchableOpacity
+          style={[
+            styles.addButton,
+            selectedIds.size === 0 && styles.addButtonDisabled,
+          ]}
+          onPress={handleAdd}
+          disabled={selectedIds.size === 0}
+        >
+          <Text style={styles.addButtonText}>
+            {selectedIds.size === 0
+              ? "Select exercises to add"
+              : `Add ${selectedIds.size} Exercise${selectedIds.size > 1 ? "s" : ""}`}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f0f5',
+    backgroundColor: "#f0f0f5",
+  },
+  contentWrapper: {
+    flex: 1,
   },
   tagRow: {
     paddingHorizontal: 16,
@@ -145,74 +198,73 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: '#e8e8ee',
+    backgroundColor: "#e8e8ee",
     marginRight: 8,
   },
   activeTag: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: "#1a1a2e",
   },
   tagText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
-    textTransform: 'capitalize',
+    fontWeight: "600",
+    color: "#666",
+    textTransform: "capitalize",
   },
   activeTagText: {
-    color: '#fff',
+    color: "#fff",
   },
   list: {
     paddingHorizontal: 16,
-    paddingBottom: 100,
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 10,
     padding: 14,
     marginBottom: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: '#e8e8e8',
+    borderColor: "#e8e8e8",
   },
   cardSelected: {
     borderWidth: 2,
-    borderColor: '#f4511e',
+    borderColor: "#f4511e",
   },
   checkbox: {
     width: 24,
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     marginRight: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   checkboxSelected: {
-    backgroundColor: '#f4511e',
-    borderColor: '#f4511e',
+    backgroundColor: "#f4511e",
+    borderColor: "#f4511e",
   },
   checkmark: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   info: {
     flex: 1,
   },
   name: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginBottom: 2,
   },
   sets: {
     fontSize: 12,
-    color: '#888',
+    color: "#888",
     marginBottom: 4,
   },
   exerciseTagRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   categoryBadge: {
     borderRadius: 4,
@@ -221,19 +273,19 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   cardioBadge: {
-    backgroundColor: '#e91e6315',
+    backgroundColor: "#e91e6315",
   },
   gymBadge: {
-    backgroundColor: '#2196f315',
+    backgroundColor: "#2196f315",
   },
   categoryText: {
     fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    color: '#666',
+    fontWeight: "700",
+    textTransform: "uppercase",
+    color: "#666",
   },
   miniTag: {
-    backgroundColor: '#f4511e12',
+    backgroundColor: "#f4511e12",
     borderRadius: 4,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -241,37 +293,46 @@ const styles = StyleSheet.create({
   },
   miniTagText: {
     fontSize: 10,
-    color: '#f4511e',
-    fontWeight: '600',
-    textTransform: 'capitalize',
+    color: "#f4511e",
+    fontWeight: "600",
+    textTransform: "capitalize",
   },
   empty: {
     padding: 40,
-    alignItems: 'center',
+    alignItems: "center",
   },
   emptyText: {
     fontSize: 14,
-    color: '#999',
+    color: "#999",
   },
   footer: {
-    position: 'absolute',
-    bottom: 0,
+    position: "absolute",
     left: 0,
     right: 0,
-    padding: 16,
-    backgroundColor: '#fff',
+    bottom: 0,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    backgroundColor: "#fff",
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: "#eee",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 8,
   },
   addButton: {
-    backgroundColor: '#f4511e',
+    backgroundColor: "#f4511e",
     paddingVertical: 14,
     borderRadius: 10,
-    alignItems: 'center',
+    alignItems: "center",
+  },
+  addButtonDisabled: {
+    backgroundColor: "#f7b095",
   },
   addButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 });

@@ -1,22 +1,32 @@
-import React from 'react';
+import React from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-} from 'react-native';
-import { Link, Stack } from 'expo-router';
+} from "react-native";
+import { Link, Stack } from "expo-router";
 
 // Dashboard Card Component
 type DashboardCardProps = {
   title: string;
   emoji: string;
-  href: '/todays-workout' | '/exercise-library' | '/weekly-planner' | '/sign-in';
+  href:
+    | "/todays-workout"
+    | "/exercise-library"
+    | "/weekly-planner"
+    | "/sign-in"
+    | "/profile";
   description: string;
 };
 
-function DashboardCard({ title, emoji, href, description }: DashboardCardProps) {
+function DashboardCard({
+  title,
+  emoji,
+  href,
+  description,
+}: DashboardCardProps) {
   return (
     <Link href={href} asChild>
       <TouchableOpacity style={styles.card}>
@@ -36,7 +46,7 @@ function DashboardCard({ title, emoji, href, description }: DashboardCardProps) 
 export default function HomeScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Stack.Screen options={{ title: '💪 GYM Workbook' }} />
+      <Stack.Screen options={{ title: "💪 GYM Workbook" }} />
 
       <Text style={styles.headerSubtitle}>Select a section to get started</Text>
 
@@ -61,15 +71,8 @@ export default function HomeScreen() {
         description="Manage your 7-day workout schedule"
       />
 
-      <DashboardCard
-        title="Sign In"
-        emoji="🔐"
-        href="/sign-in"
-        description="Sign in or continue as guest"
-      />
-
       <View style={styles.footer}>
-         <Text style={styles.footerText}>Stay consistent!</Text>
+        <Text style={styles.footerText}>Stay consistent!</Text>
       </View>
     </ScrollView>
   );
@@ -78,33 +81,34 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f0f5',
+    backgroundColor: "#f0f0f5",
   },
   content: {
     padding: 20,
     paddingTop: 40,
+    paddingBottom: 120,
   },
   headerSubtitle: {
     fontSize: 16,
-    color: '#666',
+    color: "#666",
     marginBottom: 24,
-    textAlign: 'center',
+    textAlign: "center",
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 24,
     marginBottom: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     borderWidth: 1,
-    borderColor: '#e8e8e8',
+    borderColor: "#e8e8e8",
     // Removed shadows for web compatibility as per previous fix
   },
   cardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   cardEmoji: {
@@ -113,26 +117,26 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#1a1a2e',
+    fontWeight: "700",
+    color: "#1a1a2e",
     marginBottom: 4,
   },
   cardDesc: {
     fontSize: 14,
-    color: '#888',
+    color: "#888",
   },
   arrow: {
     fontSize: 28,
-    color: '#ccc',
+    color: "#ccc",
     marginLeft: 12,
   },
   footer: {
     marginTop: 40,
-    alignItems: 'center',
+    alignItems: "center",
   },
   footerText: {
     fontSize: 14,
-    color: '#aaa',
-    fontStyle: 'italic',
+    color: "#aaa",
+    fontStyle: "italic",
   },
 });

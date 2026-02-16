@@ -1,3 +1,10 @@
+- ### Logging
+  - The shared `logger` helper wraps `console` calls with timestamps and levels.
+  - Key integration points:
+    - `context/AuthContext.tsx` – records auth session detection, updates, refreshes, and sign-outs.
+    - `app/sign-in.tsx` – logs sign-in/sign-up attempts (success, failure, and email confirmation cases).
+    - `app/services/workoutService.ts` – logs exercise fetch results, weekly plan retrieval, and CRUD operations on plans.
+  - To log elsewhere: import `logger` and call `logger.info | logger.warn | logger.error` with optional metadata objects.
 # 💪 AI GYM Workbook
 
 A mobile gym application built with **React Native (Expo)** that provides day-wise exercise routines with step-by-step instructions for each exercise.

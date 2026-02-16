@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabase';
 import { DayPlan, DEFAULT_DAY_PLAN, Exercise } from '../types';
-import { ensureAuthenticated } from './authService';
+import { getSessionUser } from './authService';
+import { logger } from '../../utils/logger';
 
 // ─── Exercise Service ────────────────────────────────────────────────
 
@@ -11,10 +12,11 @@ export const fetchExercises = async (): Promise<Exercise[]> => {
         .order('id');
 
     if (error) {
-        console.error('Error fetching exercises:', error);
+        logger.error('Error fetching exercises', { error });
         return [];
     }
 
+    logger.info('Exercises fetched', { count: data?.length ?? 0 });
     return data as Exercise[];
 };
 
@@ -36,7 +38,7 @@ export const fetchUserPlan = async (): Promise<DayPlan> => {
             .eq('user_id', session.user.id);
 
         if (error) {
-            console.error('Error fetching plan:', error);
+            logger.error('Error fetching plan', { error });
             return DEFAULT_DAY_PLAN;
         }
 
@@ -51,63 +53,64 @@ export const fetchUserPlan = async (): Promise<DayPlan> => {
         Object.keys(plan).forEach(key => plan[key] = []);
 
         data.forEach((row: { day_name: string; exercise_id: number }) => {
+            const normalizedId = Number(row.exercise_id);
+            if (!Number.isFinite(normalizedId)) {
+                logger.warn('Skipping invalid exercise id from plan', { row });
+                return;
+            }
+
             if (plan[row.day_name]) {
-                plan[row.day_name].push(row.exercise_id);
+                plan[row.day_name].push(normalizedId);
             }
         });
 
+        logger.info('Fetched user plan', { userId: session.user.id });
         return plan;
     } catch (e) {
-        console.error('Exception fetching plan:', e);
+        logger.error('Exception fetching plan', { error: e });
         return DEFAULT_DAY_PLAN;
     }
 };
 
 export const addExerciseToPlan = async (day: string, exerciseId: number) => {
-    let { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) {
-        await ensureAuthenticated();
-        ({ data: { session } } = await supabase.auth.getSession());
-    }
-
-    if (!session?.user) {
-        console.warn('Cannot add to plan: no authenticated session.');
+    const user = await getSessionUser();
+    if (!user) {
+        logger.warn('Cannot add to plan: no authenticated session.');
         return;
     }
 
     const { error } = await supabase
         .from('weekly_plans')
         .insert({
-            user_id: session.user.id,
+            user_id: user.id,
             day_name: day,
             exercise_id: exerciseId
         });
 
     if (error) {
-        console.error('Error adding to plan:', error);
+        logger.error('Error adding to plan', { error, day, exerciseId });
+    } else {
+        logger.info('Exercise added to plan', { day, exerciseId, userId: user.id });
     }
 };
 
 export const removeExerciseFromPlan = async (day: string, exerciseId: number) => {
-    let { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) {
-        await ensureAuthenticated();
-        ({ data: { session } } = await supabase.auth.getSession());
-    }
-
-    if (!session?.user) {
-        console.warn('Cannot remove from plan: no authenticated session.');
+    const user = await getSessionUser();
+    if (!user) {
+        logger.warn('Cannot remove from plan: no authenticated session.');
         return;
     }
 
     const { error } = await supabase
         .from('weekly_plans')
         .delete()
-        .eq('user_id', session.user.id)
+        .eq('user_id', user.id)
         .eq('day_name', day)
         .eq('exercise_id', exerciseId);
 
     if (error) {
-        console.error('Error removing from plan:', error);
+        logger.error('Error removing from plan', { error, day, exerciseId });
+    } else {
+        logger.info('Exercise removed from plan', { day, exerciseId, userId: user.id });
     }
 };
