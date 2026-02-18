@@ -28,7 +28,7 @@ export const fetchUserPlan = async (): Promise<DayPlan> => {
 
         // If no user, return default plan (or handle anonymous/local storage)
         if (!session?.user) {
-            console.log('No user session found, using default plan');
+            logger.info('No user session found, using default plan');
             return DEFAULT_DAY_PLAN;
         }
 

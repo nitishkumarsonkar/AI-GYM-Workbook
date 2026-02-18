@@ -9,6 +9,8 @@ Captures recent work items derived from the active context.
 | 2026-02-16 | Added Supabase profile fields (age, gender, bio), new profile services/context wiring, and a Profile screen that lets authenticated users view/edit their details. |
 | 2026-02-16 | Introduced bottom tab navigation (Home, Planner, Account), simplified the Home cards, and enhanced the Account screen with logout controls. |
 | 2026-02-16 | Fixed footer spacing/padding conflicts with the bottom nav, and made the Account screen scrollable so Save/Sign Out remain visible. |
+| 2026-02-17 | Added Home “Goal” section and Supabase Edge Function `recommend-exercises` to fetch Gemini-based exercise recommendations per goal. |
+| 2026-02-17 | Added `workout_logs` table + deterministic in-app recommendation engine (recovery + goal + variety) and a basic UI to log completed exercises. |
 
 ## Links
 - ← [activeContext.md](activeContext.md)
