@@ -12,7 +12,7 @@ If you receive a `404 Not Found` when hitting `https://<project>.supabase.co/res
    Missing headers cause Supabase to respond with a 404 to avoid leaking schema information.
 
 2. **Confirm the `public.users` table exists**  
-   Deploy the latest schema changes from `supabase/schema.sql` (via `supabase db push` or the SQL editor). Without this table, the REST route won’t resolve.
+   Deploy the latest schema changes from `supabase/migrations/*.sql` (via `supabase db push` or the SQL editor). Without this table, the REST route won’t resolve.
 
 3. **Verify exposed schemas**  
    In Supabase Dashboard → Settings → API → *Exposed Schemas*, ensure `public` is listed. If it isn’t, add it so PostgREST can serve the table.

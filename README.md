@@ -72,41 +72,18 @@ npx expo start --clear
 The app ships with **mock data** so you can run it immediately. To connect a real database:
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. Run the following SQL in the **SQL Editor**:
 
-```sql
--- Create tables
-CREATE TABLE days (
-  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-  name TEXT NOT NULL,
-  focus TEXT
-);
+2. Apply the database migrations from this repo.
 
-CREATE TABLE exercises (
-  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-  day_id BIGINT REFERENCES days(id),
-  name TEXT NOT NULL,
-  sets TEXT,
-  image_url TEXT
-);
+   **Recommended (via Supabase CLI):**
+   - Run `supabase/migrations/*.sql` in order
+   - Then (optional) run `supabase/seed.sql` for demo data
 
-CREATE TABLE steps (
-  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-  exercise_id BIGINT REFERENCES exercises(id),
-  step_order INT,
-  instruction TEXT
-);
+   **Manual (Dashboard SQL Editor):**
+   - Paste each file from `supabase/migrations/*.sql` (in timestamp order)
+   - Then (optional) paste `supabase/seed.sql`
 
--- Seed sample data
-INSERT INTO days (name, focus) VALUES
-  ('Monday', 'Chest & Triceps'),
-  ('Tuesday', 'Back & Biceps'),
-  ('Wednesday', 'Legs & Shoulders'),
-  ('Thursday', 'Rest'),
-  ('Friday', 'Full Body'),
-  ('Saturday', 'Cardio'),
-  ('Sunday', 'Rest');
-```
+   See `docs/DB_CHANGELOG.md` for a readable history of changes.
 
 3. Copy `.env.example` to `.env` and add your keys:
 

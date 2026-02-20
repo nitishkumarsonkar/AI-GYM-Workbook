@@ -36,7 +36,8 @@ gym-app/
 ├── lib/
 │   └── supabase.ts              # Supabase client initialisation
 ├── supabase/
-│   └── schema.sql               # Database schema & seed data
+│   ├── migrations/              # Database migrations (versioned DDL)
+│   └── seed.sql                 # Optional seed/demo data (dev)
 ├── scripts/
 │   ├── test-anon.js             # Supabase anonymous access test
 │   └── test-insert.js           # Supabase insert test
@@ -75,7 +76,9 @@ npx expo start --clear
 
 ## Database
 
-The Supabase schema (`supabase/schema.sql`) defines three core tables:
+The Supabase schema is managed via versioned SQL migrations in `supabase/migrations/*.sql`.
+
+Core tables include:
 
 | Table       | Purpose                                   |
 | ----------- | ----------------------------------------- |
@@ -84,6 +87,8 @@ The Supabase schema (`supabase/schema.sql`) defines three core tables:
 | `steps`     | Ordered instructions for each exercise     |
 
 Row Level Security (RLS) policies are included in the schema file.
+
+Seed/demo data (for local/dev) lives in `supabase/seed.sql`.
 
 ## Useful Commands
 
