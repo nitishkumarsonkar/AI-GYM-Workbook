@@ -25,6 +25,7 @@ export type UserProfile = {
   age?: number | null;
   gender?: 'male' | 'female' | 'non_binary' | 'prefer_not_to_say' | null;
   bio?: string | null;
+  note?: string | null;
 };
 
 export const ensureUserProfile = (userId: string, profile: UserProfile = {}) => {

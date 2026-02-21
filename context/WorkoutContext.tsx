@@ -22,7 +22,8 @@ import { logger } from "../utils/logger";
 type Action =
   | { type: "SET_PLAN"; payload: DayPlan }
   | { type: "ADD_EXERCISE_TO_DAY"; day: string; exerciseId: number }
-  | { type: "REMOVE_EXERCISE_FROM_DAY"; day: string; exerciseId: number };
+  | { type: "REMOVE_EXERCISE_FROM_DAY"; day: string; exerciseId: number }
+  | { type: "UPSERT_EXERCISE"; payload: Exercise };
 
 type WorkoutState = {
   dayPlan: DayPlan;
@@ -33,6 +34,7 @@ type WorkoutContextType = {
   state: WorkoutState;
   addExerciseToDay: (day: string, exerciseId: number) => void;
   removeExerciseFromDay: (day: string, exerciseId: number) => void;
+  upsertExercise: (exercise: Exercise) => void;
   // Helpers mimicking old exerciseData API
   getExerciseById: (id: number) => Exercise | undefined;
   getExercisesByCategory: (category: "cardio" | "gym") => Exercise[];
@@ -72,6 +74,19 @@ function workoutReducer(
           [action.day]: current.filter((id) => id !== action.exerciseId),
         },
       };
+    }
+    case "UPSERT_EXERCISE": {
+      const existingIndex = state.exercises.findIndex(
+        (exercise) => exercise.id === action.payload.id,
+      );
+
+      if (existingIndex === -1) {
+        return { ...state, exercises: [...state.exercises, action.payload] };
+      }
+
+      const nextExercises = [...state.exercises];
+      nextExercises[existingIndex] = action.payload;
+      return { ...state, exercises: nextExercises };
     }
     default:
       return state;
@@ -148,6 +163,10 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     removeExerciseFromPlan(day, exerciseId);
   };
 
+  const upsertExercise = (exercise: Exercise) => {
+    dispatch({ type: "UPSERT_EXERCISE", payload: exercise });
+  };
+
   // Helper functions
   const getExerciseById = (id: number) =>
     state.exercises.find((ex) => ex.id === id);
@@ -176,6 +195,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
         state,
         addExerciseToDay,
         removeExerciseFromDay,
+        upsertExercise,
         getExerciseById,
         getExercisesByCategory,
         getExercisesByTag,

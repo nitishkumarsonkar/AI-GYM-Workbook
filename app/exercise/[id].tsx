@@ -7,6 +7,7 @@ import {
   Image,
   ActivityIndicator,
   TouchableOpacity,
+  Platform,
 } from "react-native";
 import { useLocalSearchParams, Stack } from "expo-router";
 import { useWorkout } from "../../context/WorkoutContext";
@@ -39,7 +40,14 @@ export default function ExerciseDetailScreen() {
 
         if (result) {
           setDetail(result);
-          setMediaUri(result.mediaUri ?? exercise.image_url ?? null);
+          const resolvedUri = result.mediaUri ?? exercise.image_url ?? null;
+          console.log('[ExerciseDetail] Media URI resolved:', resolvedUri);
+          setMediaUri(resolvedUri);
+          if (!resolvedUri) {
+            setError(
+              "No image available for this exercise yet. Try Refresh Media.",
+            );
+          }
         } else {
           setMediaUri(exercise.image_url ?? null);
           setError(
@@ -47,6 +55,7 @@ export default function ExerciseDetailScreen() {
           );
         }
       } catch (err) {
+        console.error('[ExerciseDetail] Error loading exercise:', err);
         setError("Something went wrong while loading this exercise.");
       } finally {
         setLoading(false);
@@ -80,18 +89,36 @@ export default function ExerciseDetailScreen() {
     <ScrollView style={styles.container}>
       <Stack.Screen options={{ title: exercise.name }} />
 
-      {/* Image */}
+      {/* Image / GIF */}
       <View style={styles.mediaContainer}>
         {mediaUri ? (
-          <Image
-            source={{ uri: mediaUri }}
-            style={styles.image}
-            resizeMode="cover"
-            onError={() => {
-              setMediaUri(null);
-              setError("Unable to load the media file.");
-            }}
-          />
+          Platform.OS === "web" ? (
+            // Use native <img> on web for proper GIF animation support
+            <img
+              src={mediaUri}
+              alt={exercise.name}
+              style={{
+                width: "100%",
+                height: 250,
+                objectFit: "contain",
+                backgroundColor: "#f6f6f6",
+              }}
+              onError={() => {
+                setMediaUri(null);
+                setError("Unable to load the media file.");
+              }}
+            />
+          ) : (
+            <Image
+              source={{ uri: mediaUri }}
+              style={styles.image}
+              resizeMode="contain"
+              onError={() => {
+                setMediaUri(null);
+                setError("Unable to load the media file.");
+              }}
+            />
+          )
         ) : (
           <Image
             source={require("../../assets/icon.png")}

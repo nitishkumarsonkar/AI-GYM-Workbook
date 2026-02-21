@@ -1,7 +1,23 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Link, Stack } from 'expo-router';
+import React, { useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { Link, Stack, useRouter } from 'expo-router';
 import { useWorkout } from '../context/WorkoutContext';
+import { useAuth } from '../context/AuthContext';
+import { resolveExerciseForLibraryOpen } from './services/exerciseLibrarySearchService';
+import {
+  ExerciseDbExercise,
+  searchExercisesByName,
+} from './services/exerciseDbService';
+import { logger } from '../utils/logger';
 
 // Exercise Card Component
 function ExerciseCardList({ exercise }) {
@@ -18,20 +34,108 @@ function ExerciseCardList({ exercise }) {
   );
 }
 
-export default function ExerciseLibraryScreen() {
-  const { getExercisesByCategory, getUniqueTags, state } = useWorkout();
-  const [activeTab, setActiveTab] = useState<'cardio' | 'gym'>('gym');
-  const [activeTag, setActiveTag] = useState<string | null>(null);
+function SearchExerciseCard({
+  exercise,
+  onPress,
+  opening,
+}: {
+  exercise: ExerciseDbExercise;
+  onPress: () => void;
+  opening: boolean;
+}) {
+  return (
+    <TouchableOpacity style={styles.listCard} onPress={onPress} disabled={opening}>
+      <View style={styles.listCardInfo}>
+        <Text style={styles.listCardName}>{exercise.name}</Text>
+        <Text style={styles.listCardSets}>
+          {[exercise.bodyPart, exercise.target].filter(Boolean).join(' • ') || 'ExerciseDB result'}
+        </Text>
+      </View>
+      {opening ? <ActivityIndicator color="#f4511e" /> : <Text style={styles.arrow}>›</Text>}
+    </TouchableOpacity>
+  );
+}
 
-  const tags = useMemo(() => getUniqueTags(activeTab), [activeTab, state.exercises]);
+export default function ExerciseLibraryScreen() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const { getExercisesByCategory, getUniqueTags, upsertExercise, state } = useWorkout();
+  const [activeTab, setActiveTab] = useState<'cardio' | 'gym' | 'search'>('gym');
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<ExerciseDbExercise[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [openingExerciseId, setOpeningExerciseId] = useState<string | null>(null);
+
+  const selectedCategory = activeTab === 'cardio' ? 'cardio' : 'gym';
+  const tags = useMemo(
+    () => (activeTab === 'search' ? [] : getUniqueTags(selectedCategory)),
+    [activeTab, selectedCategory, state.exercises],
+  );
 
   const filteredExercises = useMemo(() => {
-    const exercises = getExercisesByCategory(activeTab);
+    if (activeTab === 'search') {
+      return [];
+    }
+
+    const exercises = getExercisesByCategory(selectedCategory);
     if (activeTag) {
       return exercises.filter((ex) => ex.tags.includes(activeTag));
     }
     return exercises;
-  }, [activeTab, activeTag, state.exercises]);
+  }, [activeTab, selectedCategory, activeTag, state.exercises]);
+
+  const handleSearch = async () => {
+    const normalizedQuery = searchQuery.trim();
+    if (!normalizedQuery) {
+      return;
+    }
+
+    setSearchError(null);
+    setIsSearching(true);
+    try {
+      const results = await searchExercisesByName(normalizedQuery);
+      setSearchResults(results);
+    } catch (error) {
+      logger.error('Search failed for exercise library', { error, query: normalizedQuery });
+      setSearchError('Search failed. Please try again.');
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSearchResultPress = async (exercise: ExerciseDbExercise) => {
+    setOpeningExerciseId(exercise.id);
+    try {
+      const resolved = await resolveExerciseForLibraryOpen(exercise);
+      if (resolved.status === 'auth_required') {
+        Alert.alert(
+          'Sign in required',
+          'Sign in required to save this exercise and open details.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Sign In',
+              onPress: () => router.push('/sign-in'),
+            },
+          ],
+        );
+        return;
+      }
+
+      if (resolved.status === 'error') {
+        Alert.alert('Unable to open exercise', resolved.message);
+        return;
+      }
+
+      upsertExercise(resolved.exercise);
+      router.push(`/exercise/${resolved.exercise.id}`);
+    } finally {
+      setOpeningExerciseId(null);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -57,39 +161,100 @@ export default function ExerciseLibraryScreen() {
               🫀 Cardio
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, styles.lastTab, activeTab === 'search' && styles.activeTab]}
+            onPress={() => { setActiveTab('search'); setActiveTag(null); }}
+          >
+            <Text style={[styles.tabText, activeTab === 'search' && styles.activeTabText]}>
+              🔎 Search
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Tag Pills */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tagPillRow}
-        >
-          <TouchableOpacity
-            style={[styles.tagPill, !activeTag && styles.activeTagPill]}
-            onPress={() => setActiveTag(null)}
-          >
-            <Text style={[styles.tagPillText, !activeTag && styles.activeTagPillText]}>All</Text>
-          </TouchableOpacity>
-          {tags.map((tag) => (
+        {activeTab === 'search' ? (
+          <View style={styles.searchContainer}>
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search exercises from ExerciseDB"
+              style={styles.searchInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+              onSubmitEditing={handleSearch}
+            />
             <TouchableOpacity
-              key={tag}
-              style={[styles.tagPill, activeTag === tag && styles.activeTagPill]}
-              onPress={() => setActiveTag(activeTag === tag ? null : tag)}
+              style={[
+                styles.searchButton,
+                (!searchQuery.trim() || isSearching) && styles.searchButtonDisabled,
+              ]}
+              onPress={handleSearch}
+              disabled={!searchQuery.trim() || isSearching}
             >
-              <Text style={[styles.tagPillText, activeTag === tag && styles.activeTagPillText]}>
-                {tag}
-              </Text>
+              {isSearching ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.searchButtonText}>Search</Text>
+              )}
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+          </View>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tagPillRow}
+          >
+            <TouchableOpacity
+              style={[styles.tagPill, !activeTag && styles.activeTagPill]}
+              onPress={() => setActiveTag(null)}
+            >
+              <Text style={[styles.tagPillText, !activeTag && styles.activeTagPillText]}>All</Text>
+            </TouchableOpacity>
+            {tags.map((tag) => (
+              <TouchableOpacity
+                key={tag}
+                style={[styles.tagPill, activeTag === tag && styles.activeTagPill]}
+                onPress={() => setActiveTag(activeTag === tag ? null : tag)}
+              >
+                <Text style={[styles.tagPillText, activeTag === tag && styles.activeTagPillText]}>
+                  {tag}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
       </View>
 
       {/* Scrollable List */}
       <ScrollView style={styles.listContainer} contentContainerStyle={styles.listContent}>
-        {filteredExercises.map((ex) => (
-          <ExerciseCardList key={ex.id} exercise={ex} />
-        ))}
+        {activeTab === 'search' ? (
+          <>
+            {searchError ? <Text style={styles.searchError}>{searchError}</Text> : null}
+            {!isSearching && searchResults.length === 0 && searchQuery.trim().length > 0 ? (
+              <Text style={styles.searchEmptyText}>No exercises found for "{searchQuery.trim()}".</Text>
+            ) : null}
+            {!isSearching && searchResults.length === 0 && searchQuery.trim().length === 0 ? (
+              <Text style={styles.searchEmptyText}>Search ExerciseDB by name to discover exercises.</Text>
+            ) : null}
+            {searchResults.map((exercise) => (
+              <SearchExerciseCard
+                key={exercise.id}
+                exercise={exercise}
+                opening={openingExerciseId === exercise.id}
+                onPress={() => handleSearchResultPress(exercise)}
+              />
+            ))}
+            {!user ? (
+              <Text style={styles.searchHintText}>
+                You can search while logged out. Sign in is required to save missing exercises to your library.
+              </Text>
+            ) : null}
+          </>
+        ) : (
+          filteredExercises.map((ex) => (
+            <ExerciseCardList key={ex.id} exercise={ex} />
+          ))
+        )}
         <View style={{ height: 40 }} />
       </ScrollView>
     </View>
@@ -128,6 +293,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 8,
   },
+  lastTab: {
+    marginRight: 0,
+  },
   activeTab: {
     backgroundColor: '#f4511e',
   },
@@ -161,6 +329,54 @@ const styles = StyleSheet.create({
   },
   activeTagPillText: {
     color: '#fff',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  searchInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#dedede',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#222',
+    marginRight: 8,
+  },
+  searchButton: {
+    backgroundColor: '#f4511e',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    minWidth: 86,
+    alignItems: 'center',
+  },
+  searchButtonDisabled: {
+    opacity: 0.6,
+  },
+  searchButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  searchError: {
+    color: '#b00020',
+    fontSize: 13,
+    marginBottom: 10,
+  },
+  searchEmptyText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
+  },
+  searchHintText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 8,
+    lineHeight: 18,
   },
   // List Card
   listCard: {

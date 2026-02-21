@@ -1,6 +1,5 @@
 import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
-import { supabase } from '../../lib/supabase';
 import { Exercise } from '../types';
 import { logger } from '../../utils/logger';
 
@@ -14,6 +13,17 @@ type FileSystemModule = {
 
 const fs = FileSystem as unknown as FileSystemModule;
 
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+const BUCKET = 'exercise-gifs';
+
+/**
+ * Build the public URL for a file in a public Supabase Storage bucket.
+ * Format: {SUPABASE_URL}/storage/v1/object/public/{bucket}/{path}
+ */
+export function getPublicStorageUrl(path: string): string {
+  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`;
+}
+
 /**
  * We resolve cache paths lazily.
  *
@@ -22,7 +32,7 @@ const fs = FileSystem as unknown as FileSystemModule;
  * time, it can crash the entire app before any screen renders.
  */
 function getMediaCacheDir(): string | null {
-  // Expo web doesn't provide a real file system, so always fall back to signed URLs.
+  // Expo web doesn't provide a real file system, so always fall back to URLs.
   if (Platform.OS === 'web') {
     return null;
   }
@@ -39,17 +49,17 @@ type CacheResult = {
 
 export async function ensureExerciseMediaCached(exercise: Exercise): Promise<CacheResult | null> {
   if (!exercise.supabase_gif_path) {
+    logger.warn('No supabase_gif_path on exercise, cannot resolve media', { id: exercise.id, name: exercise.name });
     return null;
   }
 
   const mediaCacheDir = getMediaCacheDir();
 
   if (!mediaCacheDir) {
-    const signedUrl = await createSignedUrl(exercise.supabase_gif_path);
-    if (!signedUrl) {
-      return null;
-    }
-    return { uri: signedUrl, fromCache: false, signedUrl };
+    // Web platform: use public URL directly (bucket is public)
+    const publicUrl = getPublicStorageUrl(exercise.supabase_gif_path);
+    logger.info('Using public storage URL for exercise media (web)', { path: exercise.supabase_gif_path, publicUrl });
+    return { uri: publicUrl, fromCache: false };
   }
 
   await ensureCacheDirectory(mediaCacheDir);
@@ -61,20 +71,20 @@ export async function ensureExerciseMediaCached(exercise: Exercise): Promise<Cac
     return { uri: localFileUri, fromCache: true };
   }
 
-  const signedUrlResult = await createSignedUrl(exercise.supabase_gif_path);
-  if (!signedUrlResult) {
-    return null;
-  }
+  // For native, download from public URL to local cache
+  const publicUrl = getPublicStorageUrl(exercise.supabase_gif_path);
 
   try {
-    await fs.downloadAsync(signedUrlResult, localFileUri, {
+    await fs.downloadAsync(publicUrl, localFileUri, {
       cache: true,
     });
 
     return { uri: localFileUri, fromCache: false };
   } catch (error) {
     logger.error('Failed to download exercise media to cache', { error, path: exercise.supabase_gif_path });
-    return null;
+
+    // Fall back to public URL directly even on native
+    return { uri: publicUrl, fromCache: false };
   }
 }
 
@@ -100,14 +110,4 @@ function resolveBaseCacheDir(module: FileSystemModule): string | null {
     logger.warn('Failed to resolve base cache directory', { error });
     return null;
   }
-}
-
-async function createSignedUrl(path: string): Promise<string | null> {
-  const { data, error } = await supabase.storage.from('exercise-gifs').createSignedUrl(path, 60 * 60);
-  if (error || !data?.signedUrl) {
-    logger.error('Failed to create signed URL for exercise media', { error, path });
-    return null;
-  }
-
-  return data.signedUrl;
 }

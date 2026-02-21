@@ -28,6 +28,7 @@ export default function ProfileScreen() {
     useAuth();
   const [formState, setFormState] = useState<UserProfile>({});
   const [saving, setSaving] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -56,10 +57,12 @@ export default function ProfileScreen() {
         age: formState.age ?? null,
         gender: formState.gender ?? null,
         bio: formState.bio?.trim() ?? null,
+        note: formState.note?.trim() ? formState.note.trim() : null,
       };
       await upsertProfile(payload);
       Alert.alert("Profile updated");
       logger.info("Profile saved via UI", { userId: user.id });
+      setIsEditOpen(false); // Close edit form on save
     } catch (error) {
       Alert.alert("Unable to save profile", "Please try again later.");
       logger.error("Profile save failed", { error, userId: user.id });
@@ -96,85 +99,120 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Stack.Screen options={{ title: "Your Profile" }} />
-        <Text style={styles.heading}>About You</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.heading}>About You</Text>
+          <TouchableOpacity
+            onPress={() => setIsEditOpen(!isEditOpen)}
+            style={styles.pencilButton}
+          >
+            <Text style={styles.pencilIcon}>✎</Text>
+          </TouchableOpacity>
+        </View>
         <Text style={styles.subheading}>
           Manage the info we use to personalize your experience.
         </Text>
 
+        {!isEditOpen && (
+          <View style={styles.card}>
+            {infoItems.map((item) => (
+              <View key={item.label} style={styles.infoRow}>
+                <Text style={styles.infoLabel}>{item.label}</Text>
+                <Text style={styles.infoValue}>{item.value}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         <View style={styles.card}>
-          {infoItems.map((item) => (
-            <View key={item.label} style={styles.infoRow}>
-              <Text style={styles.infoLabel}>{item.label}</Text>
-              <Text style={styles.infoValue}>{item.value}</Text>
-            </View>
-          ))}
+          <Text style={styles.sectionTitle}>Bio</Text>
+          {isEditOpen ? (
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={formState.bio ?? ""}
+              onChangeText={(text) => handleChange("bio", text)}
+              placeholder="Tell us about your goals..."
+              multiline
+              numberOfLines={4}
+              editable={isEditable}
+            />
+          ) : (
+            <Text style={styles.noteText}>
+              {profile?.bio || "No bio added."}
+            </Text>
+          )}
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Edit Details</Text>
-
-          <Text style={styles.inputLabel}>Display Name</Text>
+          <Text style={styles.sectionTitle}>Note</Text>
           <TextInput
-            style={styles.input}
-            value={formState.display_name ?? ""}
-            onChangeText={(text) => handleChange("display_name", text)}
-            placeholder="e.g. Alex Strong"
-            editable={isEditable}
-          />
-
-          <Text style={styles.inputLabel}>Age</Text>
-          <TextInput
-            style={styles.input}
-            value={formState.age ? String(formState.age) : ""}
-            onChangeText={(text) =>
-              handleChange(
-                "age",
-                text ? Number(text.replace(/[^0-9]/g, "")) : null,
-              )
-            }
-            keyboardType="numeric"
-            placeholder="25"
-            editable={isEditable}
-          />
-
-          <Text style={styles.inputLabel}>Gender</Text>
-          <View style={styles.genderRow}>
-            {genderOptions.map((option) => {
-              const isSelected = formState.gender === option;
-              return (
-                <TouchableOpacity
-                  key={option}
-                  style={[
-                    styles.genderChip,
-                    isSelected && styles.genderChipSelected,
-                  ]}
-                  onPress={() => handleChange("gender", option)}
-                  disabled={!isEditable}
-                >
-                  <Text
-                    style={[
-                      styles.genderChipText,
-                      isSelected && styles.genderChipTextSelected,
-                    ]}
-                  >
-                    {option.replace(/_/g, " ")}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <Text style={styles.inputLabel}>Bio</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={formState.bio ?? ""}
-            onChangeText={(text) => handleChange("bio", text)}
-            placeholder="Tell us about your goals..."
+            style={[styles.input, styles.textArea, { height: 80 }]}
+            value={formState.note ?? ""}
+            onChangeText={(text) => handleChange("note", text)}
+            placeholder="Add a personal note..."
             multiline
-            numberOfLines={4}
+            numberOfLines={3}
             editable={isEditable}
           />
+        </View>
 
+        {isEditOpen && (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Edit Details</Text>
+
+            <Text style={styles.inputLabel}>Display Name</Text>
+            <TextInput
+              style={styles.input}
+              value={formState.display_name ?? ""}
+              onChangeText={(text) => handleChange("display_name", text)}
+              placeholder="e.g. Alex Strong"
+              editable={isEditable}
+            />
+
+            <Text style={styles.inputLabel}>Age</Text>
+            <TextInput
+              style={styles.input}
+              value={formState.age ? String(formState.age) : ""}
+              onChangeText={(text) =>
+                handleChange(
+                  "age",
+                  text ? Number(text.replace(/[^0-9]/g, "")) : null,
+                )
+              }
+              keyboardType="numeric"
+              placeholder="25"
+              editable={isEditable}
+            />
+
+            <Text style={styles.inputLabel}>Gender</Text>
+            <View style={styles.genderRow}>
+              {genderOptions.map((option) => {
+                const isSelected = formState.gender === option;
+                return (
+                  <TouchableOpacity
+                    key={option}
+                    style={[
+                      styles.genderChip,
+                      isSelected && styles.genderChipSelected,
+                    ]}
+                    onPress={() => handleChange("gender", option)}
+                    disabled={!isEditable}
+                  >
+                    <Text
+                      style={[
+                        styles.genderChipText,
+                        isSelected && styles.genderChipTextSelected,
+                      ]}
+                    >
+                      {option.replace(/_/g, " ")}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {isEditable && (
           <TouchableOpacity
             style={[
               styles.primaryButton,
@@ -189,8 +227,11 @@ export default function ProfileScreen() {
               <Text style={styles.primaryButtonText}>Save Changes</Text>
             )}
           </TouchableOpacity>
-        </View>
-        <TouchableOpacity style={styles.secondaryButton} onPress={signOutUser}>
+        )}
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={signOutUser}
+        >
           <Text style={styles.secondaryButtonText}>Sign Out</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -207,11 +248,23 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 140,
   },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  pencilButton: {
+    padding: 6,
+  },
+  pencilIcon: {
+    fontSize: 22,
+    color: "#f4511e",
+  },
   heading: {
     fontSize: 28,
     fontWeight: "800",
     color: "#1a1a2e",
-    marginBottom: 8,
   },
   subheading: {
     fontSize: 14,
@@ -245,6 +298,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     color: "#1a1a2e",
   },
+  noteText: {
+    fontSize: 15,
+    color: "#444",
+    lineHeight: 22,
+    fontStyle: "italic",
+  },
+
   inputLabel: {
     fontSize: 14,
     fontWeight: "600",

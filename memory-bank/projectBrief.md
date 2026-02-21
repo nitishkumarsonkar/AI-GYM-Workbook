@@ -6,6 +6,7 @@ This document outlines the high-level goals for the AI GYM Workbook project and 
 - **Key Outcomes:**
   1. Auth-first UX (sign in/up before home screen).
   2. Supabase-backed workout data with user-specific plans and daily logs.
+  3. Fetch data from ExerciseDb API for fetching data to show list and GIF or Animation steps.
   3. Gemini-enhanced recommendations tailored to stated goals and recent activity.
   4. Documented architectural knowledge captured via linked context files.
 
